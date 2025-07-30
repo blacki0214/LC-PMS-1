@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Search, LogOut, User, ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, LogOut, User, ChevronDown, Key } from 'lucide-react';
 import NotificationDropdown from './NotificationDropdown';
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleProfileClick = () => {
     // We'll emit a custom event to show the profile
     window.dispatchEvent(new CustomEvent('showProfile'));
+    setShowProfileMenu(false);
+  };
+
+  const handleChangePassword = () => {
+    navigate('/change-password');
     setShowProfileMenu(false);
   };
 
@@ -70,6 +77,15 @@ export default function Header() {
                     <User className="h-4 w-4" />
                     <span>View Profile</span>
                   </button>
+                  {user?.role === 'customer' && (
+                    <button
+                      onClick={handleChangePassword}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                    >
+                      <Key className="h-4 w-4" />
+                      <span>Change Password</span>
+                    </button>
+                  )}
                   <hr className="my-1" />
                   <button
                     onClick={logout}

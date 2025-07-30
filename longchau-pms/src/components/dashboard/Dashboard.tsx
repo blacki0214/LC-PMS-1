@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContextWithDB';
 import { useNotifications } from '../../contexts/NotificationContext';
+import { useActivity, Activity } from '../../contexts/ActivityContext';
 import StorageStatus from '../common/StorageStatus';
 import {
   FileText,
@@ -12,172 +13,88 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle,
-  Activity,
+  Activity as ActivityIcon,
   Heart,
   Pill,
   CreditCard,
   Calendar,
   Star,
   Zap,
-  RefreshCw
+  RefreshCw,
+  LucideIcon
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { products, prescriptions, orders, customers } = useData();
   const { addNotification } = useNotifications();
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const { getRecentActivities } = useActivity();
   const [liveStats, setLiveStats] = useState({
-    onlineUsers: 0,
+    onlineUsers: 1, // At least the current user
     activeOrders: 0,
     systemLoad: 0,
     uptime: 0
   });
 
-  // Fake activity types for dynamic generation
-  const activityTypes = [
-    {
-      type: 'prescription',
-      actions: [
-        'New prescription uploaded',
-        'Prescription validated',
-        'Prescription dispensed',
-        'Prescription rejected'
-      ],
-      icon: FileText,
-      color: 'text-blue-500'
-    },
-    {
-      type: 'order',
-      actions: [
-        'New order placed',
-        'Order confirmed',
-        'Order shipped',
-        'Order delivered',
-        'Payment processed'
-      ],
-      icon: ShoppingCart,
-      color: 'text-purple-500'
-    },
-    {
-      type: 'inventory',
-      actions: [
-        'Stock updated',
-        'New product added',
-        'Low stock alert',
-        'Batch expired',
-        'Supplier delivery'
-      ],
-      icon: Package,
-      color: 'text-green-500'
-    },
-    {
-      type: 'customer',
-      actions: [
-        'New customer registered',
-        'Profile updated',
-        'Loyalty points earned',
-        'Review submitted',
-        'Support ticket created'
-      ],
-      icon: Users,
-      color: 'text-orange-500'
-    },
-    {
-      type: 'system',
-      actions: [
-        'System backup completed',
-        'Security scan finished',
-        'Database optimized',
-        'Cache cleared',
-        'API call successful'
-      ],
-      icon: Activity,
-      color: 'text-indigo-500'
+  // Get real activities from the activity context
+  const recentActivities = getRecentActivities(8);
+
+  // Calculate real stats from actual data
+  useEffect(() => {
+    const activeOrdersCount = orders.filter(order => 
+      order.status === 'pending' || order.status === 'confirmed' || order.status === 'assigned'
+    ).length;
+
+    setLiveStats({
+      onlineUsers: 1, // Current user (could be expanded to track multiple sessions)
+      activeOrders: activeOrdersCount,
+      systemLoad: Math.random() * 50 + 25, // Simulated system load
+      uptime: Math.floor(Date.now() / 1000 / 60) % 1440 // Minutes since midnight
+    });
+  }, [orders]);
+
+  // Helper function to get activity display properties
+  const getActivityDisplay = (activity: Activity) => {
+    const typeMap: Record<string, { icon: LucideIcon; color: string }> = {
+      prescription: { icon: FileText, color: 'text-blue-500' },
+      product: { icon: Package, color: 'text-green-500' },
+      order: { icon: ShoppingCart, color: 'text-purple-500' },
+      customer: { icon: Users, color: 'text-orange-500' },
+      user: { icon: Users, color: 'text-indigo-500' },
+      system: { icon: ActivityIcon, color: 'text-gray-500' }
+    };
+    
+    const display = typeMap[activity.type] || { icon: ActivityIcon, color: 'text-gray-500' };
+    
+    // Format timestamp to relative time
+    const now = new Date();
+    const activityTime = new Date(activity.timestamp);
+    const diffMs = now.getTime() - activityTime.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    let timeString;
+    if (diffMins < 1) {
+      timeString = 'Just now';
+    } else if (diffMins < 60) {
+      timeString = `${diffMins}m ago`;
+    } else if (diffHours < 24) {
+      timeString = `${diffHours}h ago`;
+    } else {
+      timeString = `${diffDays}d ago`;
     }
-  ];
-
-  const customerNames = [
-    'Nguyen Van Duc', 'Tran Thi Mai', 'Le Van Cuong', 'Pham Thi Lan',
-    'Hoang Van Nam', 'Vu Thi Hoa', 'Dang Van Minh', 'Bui Thi Nga',
-    'Ly Van Tuan', 'Do Thi Thu', 'Ngo Van Hai', 'Cao Thi Linh'
-  ];
-
-  // Generate random activity
-  const generateRandomActivity = () => {
-    const activityType = activityTypes[Math.floor(Math.random() * activityTypes.length)];
-    const action = activityType.actions[Math.floor(Math.random() * activityType.actions.length)];
-    const customerName = customerNames[Math.floor(Math.random() * customerNames.length)];
-    const timeAgo = Math.floor(Math.random() * 60) + 1; // 1-60 minutes ago
     
     return {
-      id: Date.now() + Math.random(),
-      action,
-      user: customerName,
-      time: `${timeAgo} minute${timeAgo > 1 ? 's' : ''} ago`,
-      type: activityType.type,
-      icon: activityType.icon,
-      color: activityType.color,
-      timestamp: new Date()
+      ...display,
+      timeString
     };
   };
 
-  // Initialize activities and start real-time updates
-  useEffect(() => {
-    // Initial activities
-    const initialActivities = Array.from({ length: 8 }, () => generateRandomActivity());
-    setRecentActivities(initialActivities);
-
-    // Update activities every 5-10 seconds (reduced frequency)
-    const activityInterval = setInterval(() => {
-      const newActivity = generateRandomActivity();
-      
-      setRecentActivities(prev => {
-        const updated = [newActivity, ...prev.slice(0, 9)]; // Keep only 10 activities
-        
-        // Add notification for new activity with proper async handling
-        if (user?.role === 'customer' && Math.random() > 0.8) { // Reduced frequency
-          const notificationTypes = ['prescription', 'order'];
-          if (notificationTypes.includes(newActivity.type)) {
-            // Use setTimeout to avoid setState during render
-            setTimeout(() => {
-              try {
-                addNotification({
-                  title: 'New Activity',
-                  message: `${newActivity.action} - ${newActivity.user}`,
-                  type: 'info'
-                });
-              } catch (error) {
-                console.error('Error adding notification:', error);
-              }
-            }, 100);
-          }
-        }
-        
-        return updated;
-      });
-    }, Math.random() * 5000 + 5000); // Random interval between 5-10 seconds
-
-    return () => clearInterval(activityInterval);
-  }, [user?.role]); // Removed addNotification from dependencies
-
-  // Update live stats
-  useEffect(() => {
-    const statsInterval = setInterval(() => {
-      setLiveStats(prev => ({
-        onlineUsers: Math.floor(Math.random() * 50) + 20, // 20-70 users
-        activeOrders: Math.floor(Math.random() * 15) + 5, // 5-20 orders
-        systemLoad: Math.floor(Math.random() * 30) + 40, // 40-70% load
-        uptime: prev.uptime + 1
-      }));
-    }, 2000); // Update every 2 seconds
-
-    return () => clearInterval(statsInterval);
-  }, []);
-
-  const pendingPrescriptions = prescriptions.filter(p => p.status === 'pending').length;
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock).length;
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+  // Calculate real business metrics
+  const pendingPrescriptions = prescriptions.filter((p: any) => p.status === 'pending').length;
+  const lowStockProducts = products.filter((p: any) => p.stock <= p.minStock).length;
+  const totalRevenue = orders.reduce((sum: number, order: any) => sum + order.total, 0);
   const activeCustomers = customers.length;
 
   // Different stats for customers vs staff
@@ -300,7 +217,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Activity className="h-5 w-5 mr-2 text-blue-500" />
+              <ActivityIcon className="h-5 w-5 mr-2 text-blue-500" />
               Live Activity Feed
             </h3>
             <div className="flex items-center space-x-2">
@@ -309,23 +226,28 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {recentActivities.map((activity) => (
-              <div 
-                key={activity.id} 
-                className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors animate-fadeIn"
-              >
-                <div className="flex-shrink-0">
-                  <activity.icon className={`h-5 w-5 ${activity.color}`} />
+            {recentActivities.map((activity) => {
+              const display = getActivityDisplay(activity);
+              const IconComponent = display.icon;
+              
+              return (
+                <div 
+                  key={activity.id} 
+                  className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors animate-fadeIn"
+                >
+                  <div className="flex-shrink-0">
+                    <IconComponent className={`h-5 w-5 ${display.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{activity.action}</p>
+                    <p className="text-sm text-gray-500">{activity.userName} ({activity.userRole})</p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <p className="text-xs text-gray-400">{display.timeString}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                  <p className="text-sm text-gray-500">{activity.user}</p>
-                </div>
-                <div className="flex-shrink-0">
-                  <p className="text-xs text-gray-400">{activity.time}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

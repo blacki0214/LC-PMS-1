@@ -9,6 +9,60 @@ import type {
   Order as DBOrder
 } from '../lib/schema';
 
+// Shipper interface
+export interface Shipper {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  vehicleType: 'motorcycle' | 'car' | 'van' | 'truck';
+  vehicleNumber: string;
+  licenseNumber: string;
+  currentLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    timestamp: string;
+  };
+  isAvailable: boolean;
+  rating: number;
+  totalDeliveries: number;
+  branchId?: string;
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
+}
+
+// Branch interface
+export interface Branch {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  province: string;
+  postalCode?: string;
+  phone: string;
+  email?: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  operatingHours?: {
+    monday: { open: string; close: string; };
+    tuesday: { open: string; close: string; };
+    wednesday: { open: string; close: string; };
+    thursday: { open: string; close: string; };
+    friday: { open: string; close: string; };
+    saturday: { open: string; close: string; };
+    sunday: { open: string; close: string; };
+  };
+  managerId?: string;
+  isActive: boolean;
+}
+
 // Keep the original interfaces for backward compatibility
 export interface Product {
   id: string;
@@ -56,11 +110,80 @@ export interface Order {
     price: number;
   }[];
   total: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled';
   orderDate: string;
   shippingAddress: string;
   paymentMethod: 'cod' | 'card' | 'bank_transfer';
   paymentStatus: 'pending' | 'paid' | 'failed';
+  trackingNumber?: string;
+  deliveryDate?: string;
+  
+  // Shipper assignment
+  assignedShipperId?: string;
+  assignedShipper?: Shipper;
+  assignedAt?: string;
+  assignedBy?: string;
+  
+  // Destination tracking from branch to customer
+  originBranchId?: string;
+  originBranch?: Branch;
+  destinationLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    city: string;
+    province: string;
+  };
+  routeData?: {
+    waypoints: Array<{
+      latitude: number;
+      longitude: number;
+      address: string;
+      order: number;
+    }>;
+    distance: number; // in kilometers
+    duration: number; // in minutes
+    polyline?: string; // Encoded polyline for route visualization
+  };
+  estimatedDistance?: number;
+  estimatedDuration?: number;
+  
+  // Shipping tracking information
+  shippingInfo?: {
+    shipperName: string;
+    shipperPhone: string;
+    vehicleType: string;
+    vehicleNumber: string;
+    estimatedTime: string;
+  };
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  shipperLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    timestamp: string;
+  };
+  trackingHistory?: {
+    timestamp: string;
+    status: string;
+    location: {
+      latitude: number;
+      longitude: number;
+      address: string;
+    };
+    description: string;
+  }[];
+  
+  // Delivery confirmation
+  deliveryProof?: {
+    photos: string[];
+    signature?: string;
+    recipientName?: string;
+    notes?: string;
+  };
+  customerRating?: number;
+  deliveryNotes?: string;
 }
 
 export interface Customer {
@@ -100,13 +223,29 @@ interface DataContextType {
   prescriptions: Prescription[];
   orders: Order[];
   customers: Customer[];
+  shippers: Shipper[];
+  branches: Branch[];
+  addProduct: (product: Omit<Product, 'id'>) => Promise<StorageResult>;
   updateProduct: (product: Product) => void;
   addPrescription: (prescription: Omit<Prescription, 'id'>) => Promise<StorageResult>;
   updatePrescription: (prescription: Prescription) => Promise<StorageResult>;
   addOrder: (order: Omit<Order, 'id'>) => Promise<StorageResult>;
   updateOrder: (order: Order) => Promise<StorageResult>;
-  addCustomer: (customer: Omit<Customer, 'id'>) => void;
+  updateShippingInfo: (orderId: string, shippingData: {
+    shippingInfo?: Order['shippingInfo'];
+    shipperLocation?: Order['shipperLocation'];
+    trackingHistory?: Order['trackingHistory'];
+    estimatedDelivery?: string;
+    actualDelivery?: string;
+  }) => Promise<StorageResult>;
+  assignShipper: (orderId: string, shipperId: string, routeData?: Order['routeData']) => Promise<StorageResult>;
+  updateShipperLocation: (shipperId: string, location: Shipper['currentLocation']) => Promise<StorageResult>;
+  addCustomer: (customer: Omit<Customer, 'id'>) => Promise<void>;
   updateCustomer: (customer: Customer) => void;
+  addShipper: (shipper: Omit<Shipper, 'id'>) => Promise<StorageResult>;
+  updateShipper: (shipper: Shipper) => Promise<StorageResult>;
+  addBranch: (branch: Omit<Branch, 'id'>) => Promise<StorageResult>;
+  updateBranch: (branch: Branch) => Promise<StorageResult>;
   isConnectedToDatabase: boolean;
   isLoading: boolean;
   refreshData: () => Promise<void>;
@@ -176,7 +315,14 @@ const convertDBOrder = (dbOrder: DBOrder): Order => ({
   orderDate: dbOrder.orderDate?.toISOString() || new Date().toISOString(),
   shippingAddress: dbOrder.shippingAddress,
   paymentMethod: dbOrder.paymentMethod as any,
-  paymentStatus: dbOrder.paymentStatus as any
+  paymentStatus: dbOrder.paymentStatus as any,
+  trackingNumber: (dbOrder as any).trackingNumber,
+  deliveryDate: (dbOrder as any).deliveryDate?.toISOString(),
+  shippingInfo: (dbOrder as any).shippingInfo,
+  estimatedDelivery: (dbOrder as any).estimatedDelivery?.toISOString(),
+  actualDelivery: (dbOrder as any).actualDelivery?.toISOString(),
+  shipperLocation: (dbOrder as any).shipperLocation,
+  trackingHistory: (dbOrder as any).trackingHistory
 });
 
 export function useData() {
@@ -192,6 +338,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [shippers, setShippers] = useState<Shipper[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isConnectedToDatabase, setIsConnectedToDatabase] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
@@ -201,6 +349,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const loadData = async () => {
     try {
       console.log('🔄 Loading data from database...');
+      console.log('📊 Environment check:', {
+        nodeEnv: import.meta.env.NODE_ENV,
+        viteDatabaseUrl: import.meta.env?.VITE_DATABASE_URL ? 'Present' : 'Missing',
+        isDev: import.meta.env.DEV,
+        isProd: import.meta.env.PROD
+      });
       setIsLoading(true);
       
       // Always try to connect to database
@@ -261,6 +415,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Test database connection on mount
+    console.log('🚀 DataProvider mounting...');
+    console.log('🔍 Environment Variables Check:', {
+      viteDatabaseUrl: import.meta.env?.VITE_DATABASE_URL?.substring(0, 20) + '...',
+      isProduction: import.meta.env.PROD,
+      isDevelopment: import.meta.env.DEV
+    });
+    
     loadData();
   }, []);
 
@@ -325,6 +487,79 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addProduct = async (productData: Omit<Product, 'id'>): Promise<StorageResult> => {
+    const id = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newProduct: Product = { ...productData, id };
+    
+    console.log('🔄 Adding product:', {
+      id: newProduct.id,
+      name: newProduct.name,
+      category: newProduct.category,
+      price: newProduct.price,
+      stock: newProduct.stock,
+      isConnectedToDatabase
+    });
+    
+    try {
+      if (isConnectedToDatabase) {
+        console.log('📡 Attempting to save to database...');
+        const dbProduct = await DatabaseService.createProduct({
+          id: newProduct.id,
+          name: newProduct.name,
+          description: newProduct.description,
+          category: newProduct.category,
+          price: newProduct.price.toString(),
+          stock: newProduct.stock,
+          minStock: newProduct.minStock,
+          manufacturer: newProduct.manufacturer,
+          expiryDate: newProduct.expiryDate,
+          requiresPrescription: newProduct.requiresPrescription,
+          batchNumber: newProduct.batchNumber,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+        if (dbProduct) {
+          console.log('✅ Product saved to database successfully!');
+          // Convert database product to frontend Product interface
+          const frontendProduct: Product = {
+            id: dbProduct.id,
+            name: dbProduct.name,
+            description: dbProduct.description || '',
+            category: dbProduct.category,
+            price: parseFloat(dbProduct.price),
+            stock: dbProduct.stock,
+            minStock: dbProduct.minStock,
+            manufacturer: dbProduct.manufacturer,
+            expiryDate: dbProduct.expiryDate || '',
+            requiresPrescription: dbProduct.requiresPrescription || false,
+            batchNumber: dbProduct.batchNumber || ''
+          };
+          
+          // Update local state with converted product
+          setProducts(prev => [frontendProduct, ...prev]);
+          console.log('✅ Product stored in database:', frontendProduct.id);
+          return { success: true, stored: 'database' };
+        } else {
+          console.log('⚠️ Database returned null, falling back to local storage');
+        }
+      } else {
+        console.log('⚠️ Database not connected, storing locally');
+      }
+      
+      // If database storage failed or not connected, store locally
+      setProducts(prev => [newProduct, ...prev]);
+      console.log('⚠️ Product stored locally (will sync when database is available):', newProduct.id);
+      return { success: true, stored: 'local' };
+      
+    } catch (error) {
+      console.error('❌ Error adding product:', error);
+      // Store locally as fallback
+      setProducts(prev => [newProduct, ...prev]);
+      return { success: false, stored: 'local', error: 'Failed to add product to database' };
+    }
+  };
+
   const addPrescription = async (prescription: Omit<Prescription, 'id'>): Promise<StorageResult> => {
     const id = `pres-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newPrescription: Prescription = { ...prescription, id };
@@ -371,12 +606,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return storageResult;
   };
 
-  const addCustomer = async (customer: Omit<Customer, 'id'>) => {
+  const updateShippingInfo = async (
+    orderId: string, 
+    shippingData: {
+      shippingInfo?: Order['shippingInfo'];
+      shipperLocation?: Order['shipperLocation'];
+      trackingHistory?: Order['trackingHistory'];
+      estimatedDelivery?: string;
+      actualDelivery?: string;
+    }
+  ): Promise<StorageResult> => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+      return { success: false, error: 'Order not found', stored: 'local' };
+    }
+
+    const updatedOrder: Order = {
+      ...order,
+      ...shippingData
+    };
+
+    return updateOrder(updatedOrder);
+  };
+
+  const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<void> => {
     const id = `cust-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newCustomer: Customer = { ...customer, id };
     
+    console.log('🔄 Adding customer:', {
+      id: newCustomer.id,
+      name: newCustomer.name,
+      email: newCustomer.email,
+      isConnectedToDatabase
+    });
+    
     try {
       if (isConnectedToDatabase) {
+        console.log('📡 Attempting to save customer to database...');
         await DatabaseService.createCustomer({
           id,
           name: customer.name,
@@ -391,13 +657,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           membershipTier: customer.membershipTier,
           totalSpent: customer.totalSpent.toString()
         });
+        console.log('✅ Customer saved to database successfully!');
+      } else {
+        console.log('⚠️ Database not connected, storing locally');
       }
       
       setCustomers(prev => [newCustomer, ...prev]);
+      console.log('✅ Customer added to local state');
     } catch (error) {
-      console.error('Error adding customer:', error);
+      console.error('❌ Error adding customer:', error);
       // Add locally anyway
       setCustomers(prev => [newCustomer, ...prev]);
+      throw error; // Re-throw to let the UI handle it
     }
   };
 
@@ -432,19 +703,184 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return await DatabaseStorageService.syncToDatabase();
   };
 
+  // Shipper management
+  const assignShipper = async (
+    orderId: string, 
+    shipperId: string, 
+    routeData?: {
+      waypoints: Array<{
+        latitude: number;
+        longitude: number;
+        address: string;
+        order: number;
+      }>;
+      distance: number;
+      duration: number;
+      polyline?: string;
+    }
+  ): Promise<StorageResult> => {
+    try {
+      const order = orders.find(o => o.id === orderId);
+      const shipper = shippers.find(s => s.id === shipperId);
+      
+      if (!order || !shipper) {
+        throw new Error('Order or shipper not found');
+      }
+
+      const updatedOrder: Order = {
+        ...order,
+        assignedShipperId: shipperId,
+        assignedShipper: shipper,
+        routeData,
+        status: 'assigned'
+      };
+
+      if (isConnectedToDatabase) {
+        // TODO: Update database
+      }
+      
+      setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+      return { success: true, stored: 'local' };
+    } catch (error) {
+      console.error('Error assigning shipper:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stored: 'local' };
+    }
+  };
+
+  const updateShipperLocation = async (
+    shipperId: string, 
+    location?: {
+      latitude: number;
+      longitude: number;
+      address: string;
+      timestamp: string;
+    }
+  ): Promise<StorageResult> => {
+    try {
+      const updatedShipper = shippers.find(s => s.id === shipperId);
+      if (!updatedShipper) {
+        throw new Error('Shipper not found');
+      }
+
+      const newShipper: Shipper = {
+        ...updatedShipper,
+        currentLocation: location
+      };
+
+      if (isConnectedToDatabase) {
+        // TODO: Update database
+      }
+
+      setShippers(prev => prev.map(s => s.id === shipperId ? newShipper : s));
+      return { success: true, stored: 'local' };
+    } catch (error) {
+      console.error('Error updating shipper location:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stored: 'local' };
+    }
+  };
+
+  const addShipper = async (shipper: Omit<Shipper, 'id'>): Promise<StorageResult> => {
+    try {
+      const id = `shipper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const newShipper: Shipper = {
+        ...shipper,
+        id
+      };
+
+      if (isConnectedToDatabase) {
+        // TODO: Save to database
+      }
+
+      setShippers(prev => [...prev, newShipper]);
+      return { success: true, stored: 'local' };
+    } catch (error) {
+      console.error('Error adding shipper:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stored: 'local' };
+    }
+  };
+
+  const updateShipper = async (shipper: Shipper): Promise<StorageResult> => {
+    try {
+      const existingShipper = shippers.find(s => s.id === shipper.id);
+      if (!existingShipper) {
+        throw new Error('Shipper not found');
+      }
+
+      if (isConnectedToDatabase) {
+        // TODO: Update database
+      }
+
+      setShippers(prev => prev.map(s => s.id === shipper.id ? shipper : s));
+      return { success: true, stored: 'local' };
+    } catch (error) {
+      console.error('Error updating shipper:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stored: 'local' };
+    }
+  };
+
+  // Branch management
+  const addBranch = async (branch: Omit<Branch, 'id'>): Promise<StorageResult> => {
+    try {
+      const id = `branch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const newBranch: Branch = {
+        ...branch,
+        id
+      };
+
+      if (isConnectedToDatabase) {
+        // TODO: Save to database
+      }
+
+      setBranches(prev => [...prev, newBranch]);
+      return { success: true, stored: 'local' };
+    } catch (error) {
+      console.error('Error adding branch:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stored: 'local' };
+    }
+  };
+
+  const updateBranch = async (branch: Branch): Promise<StorageResult> => {
+    try {
+      const existingBranch = branches.find(b => b.id === branch.id);
+      if (!existingBranch) {
+        throw new Error('Branch not found');
+      }
+
+      if (isConnectedToDatabase) {
+        // TODO: Update database
+      }
+
+      setBranches(prev => prev.map(b => b.id === branch.id ? branch : b));
+      return { success: true, stored: 'local' };
+    } catch (error) {
+      console.error('Error updating branch:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stored: 'local' };
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       products,
       prescriptions,
       orders,
       customers,
+      shippers,
+      branches,
+      addProduct,
       updateProduct,
       addPrescription,
       updatePrescription,
       addOrder,
       updateOrder,
+      updateShippingInfo,
       addCustomer,
       updateCustomer,
+      assignShipper,
+      updateShipperLocation,
+      addShipper,
+      updateShipper,
+      addBranch,
+      updateBranch,
       isConnectedToDatabase,
       isLoading,
       refreshData,

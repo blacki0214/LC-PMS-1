@@ -11,7 +11,11 @@ import {
   ShieldCheck,
   ShoppingBag,
   Settings,
-  Database
+  Database,
+  Truck,
+  MapPin,
+  UserPlus,
+  TestTube
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -22,9 +26,16 @@ export default function Sidebar() {
     { name: 'Prescriptions', href: '/prescriptions', icon: FileText, roles: ['pharmacist', 'manager', 'customer'] },
     { name: 'Inventory', href: '/inventory', icon: Package, roles: ['pharmacist', 'manager'] },
     { name: 'Orders', href: '/orders', icon: ShoppingCart, roles: ['pharmacist', 'manager', 'customer'] },
+    { name: 'Track Orders', href: '/shipping/track', icon: MapPin, roles: ['customer'] },
+    { name: 'Manage Shipping', href: '/shipping/manage', icon: Truck, roles: ['pharmacist', 'manager'] },
     { name: 'Shop', href: '/customers', icon: ShoppingBag, roles: ['customer'] },
     { name: 'Customers', href: '/customers', icon: Users, roles: ['pharmacist', 'manager'] },
     { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['manager'] },
+    { name: 'Create Shippers', href: '/admin/create-shippers', icon: UserPlus, roles: ['manager'] },
+    { name: 'Create Profiles', href: '/admin/create-profiles', icon: Truck, roles: ['manager'] },
+    { name: 'Migrate Database', href: '/admin/migrate-db', icon: Database, roles: ['manager'] },
+    { name: 'Test Database', href: '/admin/test-db', icon: TestTube, roles: ['manager'] },
+    { name: 'Address Lookup', href: '/admin/address-lookup', icon: MapPin, roles: ['manager'] },
     { name: 'Database Setup', href: '/setup', icon: Database, roles: ['manager'] },
   ];
 

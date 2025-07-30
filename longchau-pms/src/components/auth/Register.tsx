@@ -12,7 +12,7 @@ export default function Register({ onBackToLogin }: RegisterProps) {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'customer' as 'pharmacist' | 'manager' | 'customer'
+    role: 'customer' as 'customer' // Only customer role allowed
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -96,22 +96,9 @@ export default function Register({ onBackToLogin }: RegisterProps) {
               />
             </div>
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-2">
-                Account Type
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                required
-              >
-                <option value="customer">Customer</option>
-                <option value="pharmacist">Pharmacist</option>
-                <option value="manager">Manager</option>
-              </select>
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
+              <strong>Customer Registration:</strong> This form is for customer accounts only. 
+              Pharmacist and Manager accounts are created by administrators directly in the database.
             </div>
 
             <div>

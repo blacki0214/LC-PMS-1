@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useData } from '../../contexts/DataContextWithDB';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { useActivity } from '../../contexts/ActivityContext';
 import CustomerShopping from './CustomerShopping';
 import ProfileView from '../profile/ProfileView';
 import { 
@@ -16,15 +18,51 @@ import {
   ShoppingBag,
   UserCog,
   ArrowLeft,
-  X
+  X,
+  Save,
+  User,
+  Heart,
+  Shield
 } from 'lucide-react';
 
 export default function CustomerManagement() {
-  const { customers } = useData();
+  const { customers, addCustomer } = useData();
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
+  const { addActivity } = useActivity();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState<'management' | 'shopping' | 'profile'>('management');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+
+  // Check if user can manage customers (pharmacist or manager)
+  const canManageCustomers = user?.role === 'pharmacist' || user?.role === 'manager';
+
+  // Wrapper function for adding customers with activity logging
+  const handleAddCustomer = async (customerData: any) => {
+    try {
+      await addCustomer(customerData);
+      
+      // Log the activity
+      addActivity(
+        'customer',
+        'Added new customer',
+        `Customer "${customerData.name}" was added to the system`,
+        {
+          customerName: customerData.name
+        }
+      );
+      
+      setShowAddCustomerModal(false);
+    } catch (error) {
+      console.error('Error adding customer:', error);
+      addNotification({
+        title: 'Error',
+        message: 'Failed to add customer. Please try again.',
+        type: 'error'
+      });
+    }
+  };
 
   // If user is a customer, default to shopping view
   React.useEffect(() => {
@@ -219,17 +257,24 @@ export default function CustomerManagement() {
           <p className="text-gray-600">Manage customer information and history</p>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={() => setCurrentView('shopping')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            <span>Shop Now</span>
-          </button>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Add Customer</span>
-          </button>
+          {user?.role === 'customer' && (
+            <button
+              onClick={() => setCurrentView('shopping')}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span>Shop Now</span>
+            </button>
+          )}
+          {canManageCustomers && (
+            <button 
+              onClick={() => setShowAddCustomerModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Customer</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -381,6 +426,405 @@ export default function CustomerManagement() {
           <p className="text-gray-500">Try adjusting your search criteria or add new customers.</p>
         </div>
       )}
+
+      {/* Add Customer Modal */}
+      <AddCustomerModal 
+        isOpen={showAddCustomerModal}
+        onClose={() => setShowAddCustomerModal(false)}
+        onSubmit={handleAddCustomer}
+        addNotification={addNotification}
+      />
+    </div>
+  );
+}
+
+// Add Customer Modal Component
+function AddCustomerModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit,
+  addNotification 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSubmit: (customer: any) => Promise<void>;
+  addNotification: (notification: any) => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    dateOfBirth: '',
+    allergies: [] as string[],
+    healthStatus: {
+      bloodType: '',
+      height: '',
+      weight: '',
+      chronicConditions: [] as string[],
+      emergencyContact: {
+        name: '',
+        phone: '',
+        relationship: ''
+      },
+      insurance: {
+        provider: '',
+        policyNumber: '',
+        expiryDate: ''
+      }
+    },
+    membershipTier: 'bronze' as 'bronze' | 'silver' | 'gold' | 'platinum'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    // Validation
+    if (!formData.name || !formData.email || !formData.phone) {
+      addNotification({
+        title: 'Validation Error',
+        message: 'Please fill in all required fields (Name, Email, Phone)',
+        type: 'error'
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const customerData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        dateOfBirth: formData.dateOfBirth,
+        allergies: formData.allergies,
+        prescriptionHistory: [],
+        orderHistory: [],
+        healthStatus: {
+          ...formData.healthStatus,
+          height: formData.healthStatus.height ? parseInt(formData.healthStatus.height) : undefined,
+          weight: formData.healthStatus.weight ? parseInt(formData.healthStatus.weight) : undefined,
+        },
+        membershipTier: formData.membershipTier,
+        joinDate: new Date().toISOString(),
+        totalSpent: 0
+      };
+
+      await onSubmit(customerData);
+      
+      addNotification({
+        title: 'Customer Added',
+        message: `${formData.name} has been added to the system`,
+        type: 'success'
+      });
+      
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        dateOfBirth: '',
+        allergies: [],
+        healthStatus: {
+          bloodType: '',
+          height: '',
+          weight: '',
+          chronicConditions: [],
+          emergencyContact: {
+            name: '',
+            phone: '',
+            relationship: ''
+          },
+          insurance: {
+            provider: '',
+            policyNumber: '',
+            expiryDate: ''
+          }
+        },
+        membershipTier: 'bronze'
+      });
+      onClose();
+      
+    } catch (error) {
+      addNotification({
+        title: 'Error',
+        message: 'Failed to add customer',
+        type: 'error'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Add New Customer</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Basic Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address
+                  </label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={2}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Membership Tier
+                  </label>
+                  <select
+                    value={formData.membershipTier}
+                    onChange={(e) => setFormData({...formData, membershipTier: e.target.value as any})}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="bronze">Bronze</option>
+                    <option value="silver">Silver</option>
+                    <option value="gold">Gold</option>
+                    <option value="platinum">Platinum</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Health Information */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Heart className="h-5 w-5 mr-2" />
+                Health Information (Optional)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Blood Type
+                  </label>
+                  <select
+                    value={formData.healthStatus.bloodType}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      healthStatus: { ...formData.healthStatus, bloodType: e.target.value }
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Blood Type</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Height (cm)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.healthStatus.height}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      healthStatus: { ...formData.healthStatus, height: e.target.value }
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="50"
+                    max="250"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.healthStatus.weight}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      healthStatus: { ...formData.healthStatus, weight: e.target.value }
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="10"
+                    max="300"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency Contact */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Shield className="h-5 w-5 mr-2" />
+                Emergency Contact (Optional)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.healthStatus.emergencyContact.name}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      healthStatus: { 
+                        ...formData.healthStatus, 
+                        emergencyContact: { 
+                          ...formData.healthStatus.emergencyContact, 
+                          name: e.target.value 
+                        }
+                      }
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contact Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.healthStatus.emergencyContact.phone}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      healthStatus: { 
+                        ...formData.healthStatus, 
+                        emergencyContact: { 
+                          ...formData.healthStatus.emergencyContact, 
+                          phone: e.target.value 
+                        }
+                      }
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Relationship
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.healthStatus.emergencyContact.relationship}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      healthStatus: { 
+                        ...formData.healthStatus, 
+                        emergencyContact: { 
+                          ...formData.healthStatus.emergencyContact, 
+                          relationship: e.target.value 
+                        }
+                      }
+                    })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Spouse, Parent, Sibling"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {isSubmitting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                <span>{isSubmitting ? 'Adding...' : 'Add Customer'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

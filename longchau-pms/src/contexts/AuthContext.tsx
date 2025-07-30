@@ -5,7 +5,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'pharmacist' | 'manager' | 'customer';
+  role: 'pharmacist' | 'manager' | 'customer' | 'shipper';
   branchId?: string;
   // Enhanced professional information
   professionalInfo?: {
@@ -34,7 +34,9 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (email: string, password: string, name: string, role: 'pharmacist' | 'manager' | 'customer') => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string, name: string, role: 'pharmacist' | 'manager' | 'customer' | 'shipper') => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUser: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -93,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string, 
     password: string, 
     name: string, 
-    role: 'pharmacist' | 'manager' | 'customer'
+    role: 'pharmacist' | 'manager' | 'customer' | 'shipper'
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await UserService.createUser({
@@ -117,13 +119,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const changePassword = async (
+    currentPassword: string, 
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) {
+      return { success: false, error: 'No user logged in' };
+    }
+
+    try {
+      const result = await UserService.changePassword(user.id, currentPassword, newPassword);
+      
+      if (result.success) {
+        console.log('✅ Password changed successfully');
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      return { success: false, error: 'Password change failed' };
+    }
+  };
+
+  const refreshUser = async (): Promise<void> => {
+    if (!user) return;
+
+    try {
+      // Re-fetch user data from database to get any updates
+      const result = await UserService.loginUser(user.email, 'skip-password-check');
+      if (result.success && result.user) {
+        setUser(result.user);
+        localStorage.setItem('lcpms-user', JSON.stringify(result.user));
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('lcpms-user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, changePassword, refreshUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

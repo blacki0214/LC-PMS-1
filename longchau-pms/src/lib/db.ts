@@ -3,14 +3,18 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from './schema';
 
 // Get database URL from environment variables
-// In browser (Vite), use import.meta.env; in Node.js, use process.env
-const databaseUrl = typeof window !== 'undefined' 
-  ? import.meta.env?.VITE_DATABASE_URL
-  : process.env.DATABASE_URL || process.env.VITE_DATABASE_URL;
+// In browser (Vite), use import.meta.env
+const databaseUrl = import.meta.env?.VITE_DATABASE_URL;
 
 if (!databaseUrl) {
-  const error = 'Database URL not configured. Please check your .env file.';
+  const error = 'Database URL not configured. Please check your .env file and ensure VITE_DATABASE_URL is set.';
   console.error('❌', error);
+  console.log('🔍 Available env vars:', {
+    NODE_ENV: import.meta.env.NODE_ENV,
+    DEV: import.meta.env.DEV,
+    PROD: import.meta.env.PROD,
+    VITE_DATABASE_URL: import.meta.env.VITE_DATABASE_URL ? 'Present' : 'Missing'
+  });
   throw new Error(error);
 }
 

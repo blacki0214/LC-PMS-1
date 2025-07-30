@@ -90,6 +90,16 @@ export default function Login() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-gray-100">
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <h4 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials</h4>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div><strong>Admin:</strong> admin@longchau.com / admin123</div>
+                <div><strong>Shipper 1:</strong> shipper1@longchau.com / shipper123</div>
+                <div><strong>Shipper 2:</strong> shipper2@longchau.com / shipper123</div>
+                <div><strong>Shipper 3:</strong> shipper3@longchau.com / shipper123</div>
+              </div>
+            </div>
+            
             <p className="text-sm text-gray-600 mb-4 text-center">Don't have an account?</p>
             <button
               onClick={() => setShowRegister(true)}

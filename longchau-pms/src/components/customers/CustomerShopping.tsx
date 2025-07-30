@@ -57,41 +57,43 @@ export default function CustomerShopping() {
   });
 
   const addToCart = (product: any) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.productId === product.id);
-      if (existingItem) {
-        if (existingItem.quantity < product.stock) {
-          // Add notification for quantity increase
-          addNotification({
-            title: 'Cart Updated',
-            message: `Increased quantity of ${product.name} in cart`,
-            type: 'info'
-          });
-          
-          return prevCart.map(item =>
+    const existingItem = cart.find(item => item.productId === product.id);
+    
+    if (existingItem) {
+      if (existingItem.quantity < product.stock) {
+        // Update cart first
+        setCart(prevCart =>
+          prevCart.map(item =>
             item.productId === product.id
               ? { ...item, quantity: item.quantity + 1 }
               : item
-          );
-        }
-        return prevCart;
-      } else {
-        // Add notification for new item
-        addNotification({
-          title: 'Item Added to Cart',
-          message: `${product.name} has been added to your cart`,
-          type: 'success'
-        });
+          )
+        );
         
-        return [...prevCart, {
-          productId: product.id,
-          productName: product.name,
-          price: product.price,
-          quantity: 1,
-          stock: product.stock
-        }];
+        // Then add notification
+        addNotification({
+          title: 'Cart Updated',
+          message: `Increased quantity of ${product.name} in cart`,
+          type: 'info'
+        });
       }
-    });
+    } else {
+      // Update cart first
+      setCart(prevCart => [...prevCart, {
+        productId: product.id,
+        productName: product.name,
+        price: product.price,
+        quantity: 1,
+        stock: product.stock
+      }]);
+      
+      // Then add notification
+      addNotification({
+        title: 'Item Added to Cart',
+        message: `${product.name} has been added to your cart`,
+        type: 'success'
+      });
+    }
   };
 
   const updateCartQuantity = (productId: string, newQuantity: number) => {

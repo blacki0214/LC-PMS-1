@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContextWithDB';
+import { useActivity } from '../../contexts/ActivityContext';
 import CustomerPrescriptionUpload from './CustomerPrescriptionUpload';
 import { 
   FileText, 
@@ -22,6 +23,7 @@ import {
 export default function PrescriptionManagement() {
   const { user } = useAuth();
   const { prescriptions, updatePrescription } = useData();
+  const { addActivity } = useActivity();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedPrescription, setSelectedPrescription] = useState<string | null>(null);
@@ -71,6 +73,17 @@ export default function PrescriptionManagement() {
     };
 
     updatePrescription(updatedPrescription);
+    
+    // Log the activity
+    addActivity(
+      'prescription',
+      action === 'validated' ? 'Validated prescription' : 'Rejected prescription',
+      `Prescription for "${prescription.customerName}" was ${action}`,
+      {
+        prescriptionId: prescription.id
+      }
+    );
+    
     setSelectedPrescription(null);
     setNotes('');
   };
@@ -86,6 +99,16 @@ export default function PrescriptionManagement() {
     };
 
     updatePrescription(updatedPrescription);
+    
+    // Log the activity
+    addActivity(
+      'prescription',
+      'Dispensed prescription',
+      `Prescription for "${prescription.customerName}" was dispensed`,
+      {
+        prescriptionId: prescription.id
+      }
+    );
   };
 
   const getStatusIcon = (status: string) => {

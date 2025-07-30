@@ -16,9 +16,47 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }).notNull(), // Added password field
   name: varchar('name', { length: 255 }).notNull(),
-  role: varchar('role', { length: 50 }).notNull(), // 'pharmacist', 'manager', 'customer'
+  role: varchar('role', { length: 50 }).notNull(), // 'pharmacist', 'manager', 'customer', 'shipper'
   branchId: text('branch_id'),
   professionalInfo: jsonb('professional_info'), // For pharmacists/managers
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Shippers table (detailed shipper information)
+export const shippers = pgTable('shippers', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 20 }).notNull(),
+  vehicleType: varchar('vehicle_type', { length: 50 }).notNull(), // 'motorcycle', 'car', 'van', 'truck'
+  vehicleNumber: varchar('vehicle_number', { length: 20 }).notNull(),
+  licenseNumber: varchar('license_number', { length: 50 }).notNull(),
+  currentLocation: jsonb('current_location'), // GPS coordinates
+  isAvailable: boolean('is_available').default(true),
+  rating: decimal('rating', { precision: 3, scale: 2 }).default('5.00'),
+  totalDeliveries: integer('total_deliveries').default(0),
+  branchId: text('branch_id'),
+  emergencyContact: jsonb('emergency_contact'), // Emergency contact info
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Branches/Pharmacy locations table
+export const branches = pgTable('branches', {
+  id: text('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  address: text('address').notNull(),
+  city: varchar('city', { length: 100 }).notNull(),
+  province: varchar('province', { length: 100 }).notNull(),
+  postalCode: varchar('postal_code', { length: 10 }),
+  phone: varchar('phone', { length: 20 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  location: jsonb('location'), // GPS coordinates {latitude, longitude}
+  operatingHours: jsonb('operating_hours'), // Opening/closing times
+  managerId: text('manager_id').references(() => users.id),
+  isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -84,13 +122,38 @@ export const orders = pgTable('orders', {
   customerName: varchar('customer_name', { length: 255 }).notNull(),
   items: jsonb('items'), // Array of order items
   total: decimal('total', { precision: 10, scale: 2 }).notNull(),
-  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'confirmed', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled'
   orderDate: timestamp('order_date').defaultNow(),
   shippingAddress: text('shipping_address').notNull(),
   paymentMethod: varchar('payment_method', { length: 20 }).notNull(), // 'cod', 'card', 'bank_transfer'
   paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('pending'), // 'pending', 'paid', 'failed'
   trackingNumber: varchar('tracking_number', { length: 100 }),
   deliveryDate: timestamp('delivery_date'),
+  
+  // Shipper assignment
+  assignedShipperId: text('assigned_shipper_id').references(() => shippers.id),
+  assignedAt: timestamp('assigned_at'),
+  assignedBy: text('assigned_by').references(() => users.id), // Who assigned the shipper
+  
+  // Destination tracking from branch to customer
+  originBranchId: text('origin_branch_id').references(() => branches.id),
+  destinationLocation: jsonb('destination_location'), // Customer location coordinates
+  routeData: jsonb('route_data'), // Route waypoints and navigation data
+  estimatedDistance: decimal('estimated_distance', { precision: 8, scale: 2 }), // in kilometers
+  estimatedDuration: integer('estimated_duration'), // in minutes
+  
+  // Shipping tracking information
+  shippingInfo: jsonb('shipping_info'), // Shipper details, current location, route, etc.
+  estimatedDelivery: timestamp('estimated_delivery'),
+  actualDelivery: timestamp('actual_delivery'),
+  shipperLocation: jsonb('shipper_location'), // Current GPS coordinates
+  trackingHistory: jsonb('tracking_history'), // Array of tracking events with timestamps and locations
+  
+  // Delivery confirmation
+  deliveryProof: jsonb('delivery_proof'), // Photos, signatures, etc.
+  customerRating: integer('customer_rating'), // 1-5 stars
+  deliveryNotes: text('delivery_notes'),
+  
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

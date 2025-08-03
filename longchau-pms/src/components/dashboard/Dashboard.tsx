@@ -4,6 +4,7 @@ import { useData } from '../../contexts/DataContextWithDB';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useActivity, Activity } from '../../contexts/ActivityContext';
 import StorageStatus from '../common/StorageStatus';
+import RecommendationWidget from '../recommendations/RecommendationWidget';
 import {
   FileText,
   Package,
@@ -354,6 +355,11 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
+          {/* Personalized Recommendations - Customer Only */}
+          {user?.role === 'customer' && (
+            <RecommendationWidget />
+          )}
         </div>
       </div>
 

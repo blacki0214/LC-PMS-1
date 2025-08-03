@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, User } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContextWithDB';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useActivity } from '../../contexts/ActivityContext';
+import PharmacistOrderManagement from './PharmacistOrderManagement';
+import CustomerOrderManagement from './CustomerOrderManagement';
+import PharmacyWorkflowDemo from './PharmacyWorkflowDemo';
 import { 
   ShoppingCart, 
   Search, 
@@ -16,7 +19,9 @@ import {
   Edit,
   Save,
   X,
-  ArrowRight
+  ArrowRight,
+  UserCheck,
+  CreditCard
 } from 'lucide-react';
 
 export default function OrderManagement() {
@@ -24,22 +29,31 @@ export default function OrderManagement() {
   const { orders, updateOrder } = useData();
   const { addNotification } = useNotifications();
   const { addActivity } = useActivity();
+  
+  // Declare all state variables first
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [activeView, setActiveView] = useState<'admin' | 'demo'>('admin');
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Check if user can manage orders (pharmacist or manager)
-  const canManageOrders = user?.role === 'pharmacist' || user?.role === 'manager';
+  // Return role-based view directly without view switcher
+  if (user && (user.role as string) === 'customer') {
+    return <CustomerOrderManagement />;
+  }
+  
+  if (user && (user.role as string) === 'pharmacist') {
+    return <PharmacistOrderManagement />;
+  }
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    const matchesRole = user?.role === 'customer' ? order.customerId === user.id : true;
+    const matchesRole = (user?.role as string) === 'customer' ? order.customerId === user?.id : true;
     
     return matchesSearch && matchesFilter && matchesRole;
   });
@@ -149,13 +163,44 @@ export default function OrderManagement() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Order Management</h1>
           <p className="text-gray-600">
-            {user?.role === 'customer' 
+            {(user?.role as string) === 'customer' 
               ? 'Track your orders and order history'
               : 'Manage customer orders and shipments'
             }
           </p>
         </div>
       </div>
+
+      {/* Admin View with Demo Option */}
+      <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex mb-6">
+        <button
+          onClick={() => setActiveView('demo')}
+          className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+            activeView === 'demo'
+              ? 'bg-green-600 text-white'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          🧪 Demo Workflow
+        </button>
+        <button
+          onClick={() => setActiveView('admin')}
+          className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
+            activeView === 'admin'
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <ShoppingCart className="h-4 w-4 inline-block mr-2" />
+          Admin Management
+        </button>
+      </div>
+
+      {/* Conditional View Rendering */}
+      {activeView === 'demo' && <PharmacyWorkflowDemo />}
+      {activeView === 'admin' && (
+        <>
+          {/* Admin view content continues below */}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -280,7 +325,7 @@ export default function OrderManagement() {
                         <Eye className="h-4 w-4" />
                       </button>
                       
-                      {canManageOrders && order.status !== 'delivered' && order.status !== 'cancelled' && (
+                      {((user?.role as string) === 'pharmacist' || (user?.role as string) === 'manager') && order.status !== 'delivered' && order.status !== 'cancelled' && (
                         <button 
                           onClick={() => openStatusModal(order)}
                           className="text-green-600 hover:text-green-800 transition-colors"
@@ -290,7 +335,7 @@ export default function OrderManagement() {
                         </button>
                       )}
                       
-                      {canManageOrders && getNextStatus(order.status) && (
+                      {((user?.role as string) === 'pharmacist' || (user?.role as string) === 'manager') && getNextStatus(order.status) && (
                         <button 
                           onClick={async () => {
                             const nextStatus = getNextStatus(order.status);
@@ -346,7 +391,7 @@ export default function OrderManagement() {
           <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
           <p className="text-gray-500">
-            {user?.role === 'customer' 
+            {(user?.role as string) === 'customer' 
               ? 'You haven\'t placed any orders yet.'
               : 'No orders match your current filters.'
             }
@@ -371,6 +416,8 @@ export default function OrderManagement() {
         onSubmit={handleStatusUpdate}
         isUpdating={isUpdating}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from './schema';
+import * as recommendationSchema from './recommendation-schema';
+import * as paymentSchema from './payment-schema';
 
 // Get database URL from environment variables
 // In browser (Vite), use import.meta.env
@@ -21,7 +23,13 @@ if (!databaseUrl) {
 // Create the Neon connection
 const sql = neon(databaseUrl);
 
-// Create the Drizzle instance
-export const db = drizzle(sql, { schema });
+// Create the Drizzle instance with all schemas
+export const db = drizzle(sql, { 
+  schema: { 
+    ...schema, 
+    ...recommendationSchema,
+    ...paymentSchema
+  } 
+});
 
 export type Database = typeof db;

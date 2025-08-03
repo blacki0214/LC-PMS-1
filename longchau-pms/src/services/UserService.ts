@@ -133,7 +133,7 @@ export class UserService {
         createdAt: users.createdAt,
       }).from(users);
 
-      return userRecords.map(record => ({
+      return userRecords.map((record: any) => ({
         id: record.id,
         email: record.email,
         name: record.name,

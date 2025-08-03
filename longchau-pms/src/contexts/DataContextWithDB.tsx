@@ -631,17 +631,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomer = async (customer: Omit<Customer, 'id'>): Promise<void> => {
     const id = `cust-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const newCustomer: Customer = { ...customer, id };
+    
+    const newCustomer: Customer = {
+      id,
+      ...customer
+    };
     
     console.log('🔄 Adding customer:', {
-      id: newCustomer.id,
-      name: newCustomer.name,
-      email: newCustomer.email,
+      id,
+      name: customer.name,
+      email: customer.email,
       isConnectedToDatabase
     });
     
     try {
       if (isConnectedToDatabase) {
+        // Check if customer with this email already exists
+        console.log('🔍 Checking for existing customer with email:', customer.email);
+        const existingCustomers = await DatabaseService.getAllCustomers();
+        const existingCustomer = existingCustomers.find(c => c.email === customer.email);
+        
+        if (existingCustomer) {
+          console.log('⚠️ Customer with email already exists, skipping creation:', customer.email);
+          return;
+        }
+        
         console.log('📡 Attempting to save customer to database...');
         await DatabaseService.createCustomer({
           id,

@@ -19,24 +19,22 @@ import {
 
 export default function ShippingManagement() {
   const { user } = useAuth();
-  const { orders, updateShippingInfo, updateOrder } = useData();
+  const { orders, shippers, updateShippingInfo, updateOrder } = useData();
   const { addNotification } = useNotifications();
   const { addActivity } = useActivity();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [selectedShipperId, setSelectedShipperId] = useState('');
 
-  // Form data for shipping assignment
-  const [shippingData, setShippingData] = useState({
-    shipperName: '',
-    shipperPhone: '',
-    vehicleType: 'motorcycle',
-    vehicleNumber: '',
-    estimatedTime: '',
-    currentLocation: '',
-    latitude: 0,
-    longitude: 0
-  });
+  // Get available shippers (those who are available and not currently assigned to active orders)
+  const availableShippers = shippers.filter(shipper => 
+    shipper.isAvailable && 
+    !orders.some(order => 
+      order.assignedShipperId === shipper.id && 
+      ['shipped', 'in_transit'].includes(order.status)
+    )
+  );
 
   // Filter orders that need shipping assignment or are currently shipping
   const shippableOrders = orders.filter(order => 
@@ -47,26 +45,38 @@ export default function ShippingManagement() {
   const canManageShipping = user?.role === 'pharmacist' || user?.role === 'manager';
 
   const handleAssignShipper = async () => {
-    if (!selectedOrder || isUpdating) return;
+    if (!selectedOrder || !selectedShipperId || isUpdating) return;
 
     setIsUpdating(true);
     try {
+      // Get selected shipper data
+      const selectedShipper = shippers.find(s => s.id === selectedShipperId);
+      if (!selectedShipper) {
+        addNotification({
+          title: 'Assignment Failed',
+          message: 'Selected shipper not found',
+          type: 'error'
+        });
+        setIsUpdating(false);
+        return;
+      }
+
       // Generate tracking number if not exists
       const trackingNumber = selectedOrder.trackingNumber || 
         `TRK${Date.now().toString().slice(-8)}`;
 
       const shippingInfo = {
         shippingInfo: {
-          shipperName: shippingData.shipperName,
-          shipperPhone: shippingData.shipperPhone,
-          vehicleType: shippingData.vehicleType,
-          vehicleNumber: shippingData.vehicleNumber,
-          estimatedTime: shippingData.estimatedTime
+          shipperName: selectedShipper.name,
+          shipperPhone: selectedShipper.phone,
+          vehicleType: selectedShipper.vehicleType,
+          vehicleNumber: selectedShipper.vehicleNumber,
+          estimatedTime: '2-3 hours' // Default estimation
         },
         shipperLocation: {
-          latitude: shippingData.latitude || 14.5995, // Default to Manila
-          longitude: shippingData.longitude || 120.9842,
-          address: shippingData.currentLocation || 'Longchau Pharmacy',
+          latitude: selectedShipper.currentLocation?.latitude || 14.5995, // Default to Manila
+          longitude: selectedShipper.currentLocation?.longitude || 120.9842,
+          address: selectedShipper.currentLocation?.address || 'Longchau Pharmacy',
           timestamp: new Date().toISOString()
         },
         trackingHistory: [
@@ -74,14 +84,15 @@ export default function ShippingManagement() {
             timestamp: new Date().toISOString(),
             status: 'shipped',
             location: {
-              latitude: shippingData.latitude || 14.5995,
-              longitude: shippingData.longitude || 120.9842,
-              address: shippingData.currentLocation || 'Longchau Pharmacy'
+              latitude: selectedShipper.currentLocation?.latitude || 14.5995,
+              longitude: selectedShipper.currentLocation?.longitude || 120.9842,
+              address: selectedShipper.currentLocation?.address || 'Longchau Pharmacy'
             },
-            description: `Package picked up by ${shippingData.shipperName}`
+            description: `Package picked up by ${selectedShipper.name}`
           }
         ],
-        estimatedDelivery: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
+        estimatedDelivery: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+        assignedShipperId: selectedShipperId // Add shipper ID to track assignment
       };
 
       const result = await updateShippingInfo(selectedOrder.id, shippingInfo);
@@ -92,7 +103,8 @@ export default function ShippingManagement() {
           const updatedOrder = {
             ...selectedOrder,
             status: 'shipped' as const,
-            trackingNumber: trackingNumber
+            trackingNumber: trackingNumber,
+            assignedShipperId: selectedShipperId
           };
           await updateOrder(updatedOrder);
         }
@@ -101,7 +113,7 @@ export default function ShippingManagement() {
         addActivity(
           'order',
           'Assigned shipper',
-          `Order #${selectedOrder.id} assigned to ${shippingData.shipperName}`,
+          `Order #${selectedOrder.id} assigned to ${selectedShipper.name}`,
           {
             orderId: selectedOrder.id,
             status: 'shipped'
@@ -110,12 +122,12 @@ export default function ShippingManagement() {
 
         addNotification({
           title: 'Shipper Assigned',
-          message: `${shippingData.shipperName} has been assigned to deliver Order #${selectedOrder.id}`,
+          message: `${selectedShipper.name} has been assigned to deliver Order #${selectedOrder.id}`,
           type: 'success'
         });
 
         setShowAssignModal(false);
-        resetForm();
+        setSelectedShipperId('');
       } else {
         addNotification({
           title: 'Assignment Failed',
@@ -180,22 +192,9 @@ export default function ShippingManagement() {
     }
   };
 
-  const resetForm = () => {
-    setShippingData({
-      shipperName: '',
-      shipperPhone: '',
-      vehicleType: 'motorcycle',
-      vehicleNumber: '',
-      estimatedTime: '',
-      currentLocation: '',
-      latitude: 0,
-      longitude: 0
-    });
-    setSelectedOrder(null);
-  };
-
   const openAssignModal = (order: any) => {
     setSelectedOrder(order);
+    setSelectedShipperId(''); // Reset selected shipper
     setShowAssignModal(true);
   };
 
@@ -339,7 +338,7 @@ export default function ShippingManagement() {
               <button
                 onClick={() => {
                   setShowAssignModal(false);
-                  resetForm();
+                  setSelectedShipperId('');
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -351,95 +350,80 @@ export default function ShippingManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <User className="h-4 w-4 inline mr-1" />
-                  Shipper Name
-                </label>
-                <input
-                  type="text"
-                  value={shippingData.shipperName}
-                  onChange={(e) => setShippingData(prev => ({ ...prev, shipperName: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter shipper name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Phone className="h-4 w-4 inline mr-1" />
-                  Phone Number
-                </label>
-                <input
-                  type="text"
-                  value={shippingData.shipperPhone}
-                  onChange={(e) => setShippingData(prev => ({ ...prev, shipperPhone: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter phone number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Truck className="h-4 w-4 inline mr-1" />
-                  Vehicle Type
+                  Select Shipper
                 </label>
                 <select
-                  value={shippingData.vehicleType}
-                  onChange={(e) => setShippingData(prev => ({ ...prev, vehicleType: e.target.value }))}
+                  value={selectedShipperId}
+                  onChange={(e) => setSelectedShipperId(e.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="motorcycle">Motorcycle</option>
-                  <option value="car">Car</option>
-                  <option value="van">Van</option>
-                  <option value="truck">Truck</option>
+                  <option value="">Choose a shipper...</option>
+                  {availableShippers.map((shipper) => (
+                    <option key={shipper.id} value={shipper.id}>
+                      {shipper.name} - {shipper.vehicleType} ({shipper.vehicleNumber})
+                    </option>
+                  ))}
                 </select>
+                {availableShippers.length === 0 && (
+                  <p className="text-sm text-red-600 mt-1">
+                    No available shippers. All shippers are currently assigned or unavailable.
+                  </p>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Vehicle Number
-                </label>
-                <input
-                  type="text"
-                  value={shippingData.vehicleNumber}
-                  onChange={(e) => setShippingData(prev => ({ ...prev, vehicleNumber: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter vehicle number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Clock className="h-4 w-4 inline mr-1" />
-                  Estimated Delivery Time
-                </label>
-                <input
-                  type="text"
-                  value={shippingData.estimatedTime}
-                  onChange={(e) => setShippingData(prev => ({ ...prev, estimatedTime: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., 2-3 hours"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <MapPin className="h-4 w-4 inline mr-1" />
-                  Current Location
-                </label>
-                <input
-                  type="text"
-                  value={shippingData.currentLocation}
-                  onChange={(e) => setShippingData(prev => ({ ...prev, currentLocation: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Current address"
-                />
-              </div>
+              {selectedShipperId && (
+                <div className="bg-gray-50 p-3 rounded-md">
+                  {(() => {
+                    const shipper = shippers.find(s => s.id === selectedShipperId);
+                    if (!shipper) return null;
+                    
+                    return (
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-gray-900">Shipper Details</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-600">Name:</span>
+                            <span className="ml-1 font-medium">{shipper.name}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Phone:</span>
+                            <span className="ml-1 font-medium">{shipper.phone}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Vehicle:</span>
+                            <span className="ml-1 font-medium">{shipper.vehicleType}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">License:</span>
+                            <span className="ml-1 font-medium">{shipper.vehicleNumber}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Rating:</span>
+                            <span className="ml-1 font-medium">⭐ {shipper.rating.toFixed(1)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Deliveries:</span>
+                            <span className="ml-1 font-medium">{shipper.totalDeliveries}</span>
+                          </div>
+                        </div>
+                        {shipper.currentLocation && (
+                          <div className="pt-2 border-t">
+                            <span className="text-gray-600">Current Location:</span>
+                            <span className="ml-1 text-sm">{shipper.currentLocation.address}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end space-x-2 mt-6">
               <button
                 onClick={() => {
                   setShowAssignModal(false);
-                  resetForm();
+                  setSelectedShipperId('');
                 }}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
               >
@@ -447,11 +431,11 @@ export default function ShippingManagement() {
               </button>
               <button
                 onClick={handleAssignShipper}
-                disabled={isUpdating || !shippingData.shipperName || !shippingData.shipperPhone}
+                disabled={isUpdating || !selectedShipperId}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 <Save className="h-4 w-4 mr-1" />
-                {isUpdating ? 'Saving...' : 'Save'}
+                {isUpdating ? 'Assigning...' : 'Assign Shipper'}
               </button>
             </div>
           </div>

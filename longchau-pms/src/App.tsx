@@ -17,6 +17,7 @@ import ShippingManagement from './components/shipping/ShippingManagement';
 import ShipperDashboard from './components/shipper/ShipperDashboard';
 import CreateShipperAccounts from './components/admin/CreateShipperAccounts';
 import CreateShipperProfiles from './components/admin/CreateShipperProfiles';
+import ProductSeeder from './components/admin/ProductSeeder';
 import DatabaseMigration from './components/admin/DatabaseMigration';
 import TestDatabaseConnection from './components/admin/TestDatabaseConnection';
 import AddressLookup from './components/admin/AddressLookup';
@@ -90,6 +91,7 @@ function AppRoutes() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/admin/create-shippers" element={<CreateShipperAccounts />} />
         <Route path="/admin/create-profiles" element={<CreateShipperProfiles />} />
+        <Route path="/admin/seed-products" element={<ProductSeeder />} />
         <Route path="/admin/migrate-db" element={<DatabaseMigration />} />
         <Route path="/admin/test-db" element={<TestDatabaseConnection />} />
         <Route path="/admin/address-lookup" element={<AddressLookup />} />

@@ -129,11 +129,33 @@ export default function CustomerShopping() {
       return;
     }
 
-    const customer = customers.find(c => c.id === user.id);
+    // Try to find customer in customers table, if not found use user data
+    let customer = customers.find(c => c.id === user.id);
     
+    // If customer not found in customers table, create customer data from user
     if (!customer) {
-      alert('Customer information not found. Please try logging in again.');
-      return;
+      customer = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: '',
+        address: shippingAddress || 'No address provided',
+        dateOfBirth: '',
+        allergies: [],
+        prescriptionHistory: [],
+        orderHistory: [],
+        healthStatus: {
+          chronicConditions: [],
+          emergencyContact: {
+            name: '',
+            phone: '',
+            relationship: ''
+          }
+        },
+        membershipTier: 'bronze' as const,
+        joinDate: new Date().toISOString(),
+        totalSpent: 0
+      };
     }
 
     setIsProcessingOrder(true);

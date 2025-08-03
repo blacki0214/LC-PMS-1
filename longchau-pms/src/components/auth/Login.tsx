@@ -93,10 +93,11 @@ export default function Login() {
             <div className="bg-blue-50 rounded-lg p-4 mb-4">
               <h4 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials</h4>
               <div className="text-xs text-blue-700 space-y-1">
-                <div><strong>Admin:</strong> admin@longchau.com / admin123</div>
+                <div><strong>Admin:</strong> manager2@longchau.com / manager123</div>
+                <div><strong>For shipper need to create shipper profile in admin page first</strong></div>
                 <div><strong>Shipper 1:</strong> shipper1@longchau.com / shipper123</div>
-                <div><strong>Shipper 2:</strong> shipper2@longchau.com / shipper123</div>
-                <div><strong>Shipper 3:</strong> shipper3@longchau.com / shipper123</div>
+                <div><strong>Customer:</strong> customer@gmail.com / customer789</div>
+                <div><strong>Pharmacist:</strong> pharmacist2@longchau.com / pharmacist123</div>
               </div>
             </div>
             

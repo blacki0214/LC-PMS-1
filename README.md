@@ -604,32 +604,6 @@ localStorage.removeItem('lcpms-user')
 - [ ] **Telemedicine**: Video consultation features
 - [ ] **Blockchain**: Prescription verification using blockchain
 
-### Version History
-- **v1.0.0** (Current): Core pharmacy management system
-- **v1.1.0** (Q2 2025): Enhanced AI recommendations
-- **v1.2.0** (Q3 2025): Mobile app release
-- **v2.0.0** (Q4 2025): Advanced analytics and ML features
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2025 Long Châu Pharmacy Management System
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
-
 ## 👨‍💻 Authors
 
 - **Nguyen Van Quoc** - *Initial work* - [@blacki0214](https://github.com/blacki0214)
@@ -645,27 +619,6 @@ See also the list of [contributors](https://github.com/blacki0214/LC-PMS-1/contr
 - **Drizzle ORM** for type-safe database operations
 - **Vite** for lightning-fast development experience
 
-## 📞 Support
-
-### Getting Help
-- 📧 Email: support@longchau-pms.com
-- 💬 Discord: [Join our community](https://discord.gg/longchau-pms)
-- 📱 Issue Tracker: [GitHub Issues](https://github.com/blacki0214/LC-PMS-1/issues)
-- 📖 Documentation: [Wiki](https://github.com/blacki0214/LC-PMS-1/wiki)
-
-### Business Inquiries
-For commercial licensing and enterprise support:
-- 📧 business@longchau-pms.com
-- 📞 +84 (28) 1234-5678
-
----
-
-<div align="center">
-
-**Made with ❤️ by the Long Châu PMS Team**
-
-[![GitHub Stars](https://img.shields.io/github/stars/blacki0214/LC-PMS-1?style=social)](https://github.com/blacki0214/LC-PMS-1)
-[![GitHub Forks](https://img.shields.io/github/forks/blacki0214/LC-PMS-1?style=social)](https://github.com/blacki0214/LC-PMS-1)
 [![GitHub Issues](https://img.shields.io/github/issues/blacki0214/LC-PMS-1)](https://github.com/blacki0214/LC-PMS-1/issues)
 [![GitHub License](https://img.shields.io/github/license/blacki0214/LC-PMS-1)](https://github.com/blacki0214/LC-PMS-1/blob/main/LICENSE)
 

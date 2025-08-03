@@ -15,23 +15,6 @@
 
 </div>
 
-## 📋 Table of Contents
-
-- [✨ Features](#-features)
-- [🏗️ System Architecture](#️-system-architecture)
-- [🚀 Quick Start](#-quick-start)
-- [📦 Installation](#-installation)
-- [⚙️ Configuration](#️-configuration)
-- [💾 Database Setup](#-database-setup)
-- [🎯 Usage](#-usage)
-- [👥 User Roles](#-user-roles)
-- [🔧 Development](#-development)
-- [📱 API Reference](#-api-reference)
-- [🧪 Testing](#-testing)
-- [🚢 Deployment](#-deployment)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
-
 ## ✨ Features
 
 ### 🏪 **Pharmacy Operations**
@@ -144,14 +127,6 @@ Create a `.env` file in the root directory:
 ```env
 # Database Configuration
 DATABASE_URL="postgresql://username:password@host/database?sslmode=require"
-
-# Payment Gateway Keys (Optional for development)
-VNPAY_TMN_CODE="your_vnpay_tmn_code"
-VNPAY_HASH_SECRET="your_vnpay_hash_secret"
-MOMO_PARTNER_CODE="your_momo_partner_code"
-MOMO_ACCESS_KEY="your_momo_access_key"
-ZALOPAY_APP_ID="your_zalopay_app_id"
-ZALOPAY_KEY1="your_zalopay_key1"
 
 # Application Settings
 NODE_ENV="development"
@@ -475,60 +450,7 @@ npm run build
 ### Environment Variables for Production
 ```env
 NODE_ENV=production
-DATABASE_URL=your_production_database_url
-VNPAY_TMN_CODE=your_production_vnpay_code
-MOMO_PARTNER_CODE=your_production_momo_code
-# ... other production credentials
 ```
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-### 1. Fork the Repository
-```bash
-git clone https://github.com/your-username/LC-PMS-1.git
-```
-
-### 2. Create a Feature Branch
-```bash
-git checkout -b feature/amazing-feature
-```
-
-### 3. Make Your Changes
-- Follow the existing code style
-- Add tests for new features
-- Update documentation as needed
-
-### 4. Submit a Pull Request
-```bash
-git add .
-git commit -m "Add amazing feature"
-git push origin feature/amazing-feature
-```
-
-### Development Guidelines
-- Use TypeScript for all new code
-- Follow the existing component structure
-- Write tests for business logic
-- Update documentation for new features
-- Ensure all tests pass before submitting
-
-## 📚 Documentation
-
-### Additional Resources
-- [🏗️ Architecture Guide](docs/ARCHITECTURE.md)
-- [🔧 API Documentation](docs/API.md)
-- [🎨 UI Components](docs/COMPONENTS.md)
-- [💾 Database Schema](docs/DATABASE.md)
-- [🚀 Deployment Guide](docs/DEPLOYMENT.md)
-
-### Feature Documentation
-- [💊 Prescription Management](docs/PRESCRIPTIONS.md)
-- [🛒 Order Processing](docs/ORDERS.md)
-- [💳 Payment Integration](docs/PAYMENTS.md)
-- [🚚 Shipping & Logistics](docs/SHIPPING.md)
-- [🤖 AI Recommendations](docs/AI_RECOMMENDATIONS.md)
 
 ## 🔧 Troubleshooting
 
@@ -609,15 +531,6 @@ localStorage.removeItem('lcpms-user')
 - **Nguyen Van Quoc** - *Initial work* - [@blacki0214](https://github.com/blacki0214)
 
 See also the list of [contributors](https://github.com/blacki0214/LC-PMS-1/contributors) who participated in this project.
-
-## 🙏 Acknowledgments
-
-- **Long Châu Pharmacy** for inspiration and domain expertise
-- **React Team** for the amazing frontend framework
-- **Tailwind CSS** for the utility-first CSS framework
-- **Neon Database** for reliable PostgreSQL hosting
-- **Drizzle ORM** for type-safe database operations
-- **Vite** for lightning-fast development experience
 
 [![GitHub Issues](https://img.shields.io/github/issues/blacki0214/LC-PMS-1)](https://github.com/blacki0214/LC-PMS-1/issues)
 [![GitHub License](https://img.shields.io/github/license/blacki0214/LC-PMS-1)](https://github.com/blacki0214/LC-PMS-1/blob/main/LICENSE)
